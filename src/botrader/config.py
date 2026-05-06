@@ -57,6 +57,7 @@ class RiskConfig(BaseModel):
     sl_atr_period: int = 14
     sl_atr_mult: float = 1.0
     sl_buffer_bps: float = 2.0
+    trail_atr_mult: float = 0.0  # 0 disables trailing; e.g. 1.5 = trail by 1.5*ATR(14) past 1R
     funding_blackout_minutes: int = 5
     funding_abs_cap: float = 0.001
 
