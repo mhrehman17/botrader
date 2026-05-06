@@ -136,6 +136,78 @@ def report(
     regenerate_report(run_dir)
 
 
+@app.command()
+def serve(
+    config: Path = typer.Option(..., "--config", "-c", exists=True),
+    host: str = typer.Option("127.0.0.1", help="Bind host. Use 0.0.0.0 for LAN access."),
+    port: int = typer.Option(8787, help="Bind port."),
+) -> None:
+    """Run the HTTP API. Pairs with the mobile app."""
+    cfg = load_config(config)
+    log = setup_logging(cfg.logging.level)
+    log.info(_BANNER)
+    import os
+    if not os.environ.get("BOTRADER_API_TOKEN"):
+        log.error("BOTRADER_API_TOKEN is required. Generate with `openssl rand -hex 16`.")
+        raise typer.Exit(code=2)
+    if not os.environ.get("BOTRADER_MASTER_KEY"):
+        log.warning(
+            "BOTRADER_MASTER_KEY not set. Credential storage will fail. "
+            "Generate one with `openssl rand -hex 32`."
+        )
+    import uvicorn
+
+    from .api.app import create_app
+    log.info("Starting API on http://%s:%d (mode=%s)", host, port, cfg.mode)
+    uvicorn.run(create_app(cfg), host=host, port=port, log_level=cfg.logging.level.lower())
+
+
+credentials_app = typer.Typer(help="Manage encrypted exchange API credentials.")
+app.add_typer(credentials_app, name="credentials")
+
+
+@credentials_app.command("add")
+def credentials_add(
+    exchange_id: str = typer.Argument(..., help="ccxt exchange id, e.g. binanceusdm."),
+    testnet: bool = typer.Option(
+        True, "--testnet/--mainnet", help="Whether this key is for testnet.",
+    ),
+    label: str = typer.Option("", help="Optional label for this credential."),
+) -> None:
+    """Interactively add an exchange credential to the encrypted store."""
+    setup_logging("INFO")
+    from .api import secrets_store
+    api_key = typer.prompt(f"{exchange_id} API key")
+    api_secret = typer.prompt(f"{exchange_id} API secret", hide_input=True)
+    secrets_store.upsert(secrets_store.Credential(
+        exchange_id=exchange_id,
+        api_key=api_key, api_secret=api_secret,
+        testnet=testnet, label=label,
+    ))
+    typer.echo(f"Saved {exchange_id} (testnet={testnet}).")
+
+
+@credentials_app.command("list")
+def credentials_list() -> None:
+    """List configured exchange credentials (no secrets shown)."""
+    setup_logging("WARNING")
+    from .api import secrets_store
+    for v in secrets_store.public_view_all():
+        typer.echo(f"{v['id']}\ttestnet={v['testnet']}\tlabel={v.get('label','')}")
+
+
+@credentials_app.command("rm")
+def credentials_rm(exchange_id: str) -> None:
+    """Remove a credential."""
+    setup_logging("INFO")
+    from .api import secrets_store
+    if secrets_store.delete(exchange_id):
+        typer.echo(f"Removed {exchange_id}.")
+    else:
+        typer.echo(f"No credential for {exchange_id}.", err=True)
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     try:
         app()
