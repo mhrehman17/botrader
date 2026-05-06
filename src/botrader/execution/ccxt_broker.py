@@ -166,6 +166,69 @@ class CcxtBroker:
         except Exception as e:  # noqa: BLE001
             log.warning("set_leverage failed: %s", e)
 
+    def submit_smc_bracket(
+        self,
+        symbol: str,
+        side: Side,
+        qty: float,
+        entry_price: float,
+        stop_loss: float,
+        take_profit_1: float,
+        take_profit_2: float | None,
+        partial_pct: float = 0.5,
+        client_id: str | None = None,
+    ) -> str:
+        client_id = client_id or _new_id()
+        partial_pct = max(0.0, min(1.0, partial_pct))
+        qty1 = qty * partial_pct if take_profit_2 is not None else qty
+        qty2 = qty - qty1
+        opp: Side = "short" if side == "long" else "long"
+        entry = Order(id="", symbol=symbol, side=side, type=OrderType.LIMIT,
+                      qty=qty, price=entry_price, client_id=client_id)
+        self.place_order(entry)
+        sl = Order(id="", symbol=symbol, side=opp,
+                   type=OrderType.STOP_MARKET, qty=qty, price=None,
+                   stop_price=stop_loss, reduce_only=True,
+                   client_id=f"sl-{client_id}")
+        self.place_order(sl)
+        if qty1 > 0:
+            tp1 = Order(id="", symbol=symbol, side=opp,
+                        type=OrderType.TAKE_PROFIT_MARKET, qty=qty1, price=None,
+                        stop_price=take_profit_1, reduce_only=True,
+                        client_id=f"tp1-{client_id}")
+            self.place_order(tp1)
+        if qty2 > 0 and take_profit_2 is not None:
+            tp2 = Order(id="", symbol=symbol, side=opp,
+                        type=OrderType.TAKE_PROFIT_MARKET, qty=qty2, price=None,
+                        stop_price=take_profit_2, reduce_only=True,
+                        client_id=f"tp2-{client_id}")
+            self.place_order(tp2)
+        return entry.id
+
+    def modify_stop(self, symbol: str, new_stop: float) -> bool:
+        """Cancel existing reduce-only STOP_MARKET orders for the symbol and place a new one
+        at `new_stop` for the position's current qty. Idempotent best-effort."""
+        positions = [p for p in self.positions() if p.symbol == symbol]
+        if not positions:
+            return False
+        pos = positions[0]
+        # cancel existing stop_market orders for this symbol
+        for o in self.open_orders(symbol):
+            if o.type == OrderType.STOP_MARKET:
+                self.cancel_order(o.id)
+        opp: Side = "short" if pos.side == "long" else "long"
+        new_sl = Order(id="", symbol=symbol, side=opp,
+                       type=OrderType.STOP_MARKET, qty=pos.qty, price=None,
+                       stop_price=new_stop, reduce_only=True,
+                       client_id=None)
+        self.place_order(new_sl)
+        return True
+
+    def position_meta(self, symbol: str) -> dict | None:
+        """Live broker doesn't track entry/MFE locally; the runner can supply these
+        via local state if needed. Returns None to skip trailing in live for now."""
+        return None
+
     def submit_bracket(
         self,
         symbol: str,
