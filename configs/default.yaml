@@ -1,0 +1,52 @@
+# Default configuration. Other configs inherit and override.
+mode: backtest                       # backtest | paper | testnet | mainnet
+
+exchange:
+  id: binanceusdm
+  testnet: true
+  api_key: ""
+  api_secret: ""
+
+symbols:
+  - "BTC/USDT:USDT"
+
+timeframes:
+  htf: 1h
+  ltf: 5m
+
+strategy:
+  swing_left: 2
+  swing_right: 2
+  fvg_min_size_bps: 3
+  liquidity_tolerance_bps: 5
+  liquidity_min_touches: 2
+  entry_ttl_bars: 12
+  partial_tp_pct: 0.5
+  ote_depth: 0.5                     # 0.5 = midpoint of OB; 0.62 = OTE 62%
+  htf_lookback_bars: 500
+  ltf_lookback_bars: 500
+
+risk:
+  risk_pct_per_trade: 0.005
+  max_concurrent_positions: 2
+  max_leverage: 5
+  daily_loss_kill_pct: 0.03
+  max_drawdown_kill_pct: 0.10
+  sl_atr_period: 14
+  sl_atr_mult: 1.0
+  sl_buffer_bps: 2
+  funding_blackout_minutes: 5
+  funding_abs_cap: 0.001
+
+backtest:
+  start: "2024-06-01"
+  end: "2024-12-31"
+  fee_bps: 4
+  slippage_bps: 2
+  initial_equity: 10000
+
+data:
+  cache_dir: ".cache/ohlcv"
+
+logging:
+  level: INFO

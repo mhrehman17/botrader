@@ -1,0 +1,10 @@
+extends: default.yaml
+mode: testnet
+exchange:
+  id: binanceusdm
+  testnet: true
+symbols:
+  - "BTC/USDT:USDT"
+risk:
+  risk_pct_per_trade: 0.001
+  max_leverage: 3
