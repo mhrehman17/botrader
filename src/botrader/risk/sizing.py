@@ -27,6 +27,29 @@ def floor_to_step(value: float, step: float) -> float:
     return (int(value / step)) * step
 
 
+def consecutive_losses(trades: list) -> int:
+    """Count the trailing streak of losing trades. A trade with pnl <= 0 is a loss."""
+    n = 0
+    for t in reversed(trades):
+        if getattr(t, "pnl", 0.0) <= 0:
+            n += 1
+        else:
+            break
+    return n
+
+
+def dd_risk_factor(trades: list, loss_streak: int, multiplier: float) -> float:
+    """Drawdown-aware sizing factor.
+
+    Returns `multiplier` once the trailing streak of losing trades reaches
+    `loss_streak`; otherwise returns 1.0. A winning trade fully resets.
+    multiplier == 1.0 disables the feature.
+    """
+    if multiplier >= 1.0 or loss_streak <= 0:
+        return 1.0
+    return multiplier if consecutive_losses(trades) >= loss_streak else 1.0
+
+
 def size_position(
     equity: float,
     risk_pct: float,
