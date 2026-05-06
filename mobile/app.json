@@ -17,6 +17,9 @@
     "android": {
       "package": "dev.botrader.mobile"
     },
+    "web": {
+      "bundler": "metro"
+    },
     "extra": {
       "apiUrl": "http://127.0.0.1:8787"
     }

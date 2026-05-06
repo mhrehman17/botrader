@@ -30,6 +30,30 @@ Scan the QR with Expo Go.
 - **History** — closed trades filtered by reason (TP1, TP2, SL, BE) with cumulative R, win-rate, profit factor.
 - **Settings** — API keys management (add / verify / delete), mode switcher, risk + strategy patches with mainnet write-lock.
 
+Screenshots (rendered against a seeded paper-mode backend, captured at 390×844 via Chromium + `react-native-web`) live in [`docs/screenshots/`](./docs/screenshots).
+
+## Render the UI in a desktop browser (no phone needed)
+
+The mobile package ships with `react-native-web` so you can render the app in any browser:
+
+```bash
+cd ../  # repo root
+. .venv/bin/activate
+BOTRADER_API_TOKEN=demo-token BOTRADER_MASTER_KEY=demo-master \
+BOTRADER_CREDENTIALS_PATH=/tmp/botrader-demo-creds.enc \
+python scripts/run_demo_api.py &        # FastAPI on :8787 with seeded data
+
+cd mobile
+EXPO_OFFLINE=1 EXPO_PUBLIC_API_URL=http://127.0.0.1:8787 \
+EXPO_PUBLIC_API_TOKEN=demo-token CI=1 \
+npx expo export --platform web --output-dir /tmp/expo-web
+
+cd /tmp/expo-web && python3 -m http.server 8082
+# open http://127.0.0.1:8082/index.html and resize the window to ~390×844
+```
+
+Or run `npm run start` and press `w` to open the live web target (requires network access to expo.dev for first-run dependency check).
+
 ## Security
 
 - Bearer token from `EXPO_PUBLIC_API_TOKEN` is bundled into the app binary. **Personal use only.** Don't ship to public app stores.
