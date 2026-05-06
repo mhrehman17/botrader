@@ -140,12 +140,15 @@ def run_live(
                     if len(broker.positions()) >= cfg.risk.max_concurrent_positions:
                         break
                     cid = f"{sym}-{last_close_ts}"
-                    broker.submit_bracket(
+                    broker.submit_smc_bracket(
                         symbol=sym, side=sig.side, qty=qty,
                         entry_price=sig.entry, stop_loss=sig.stop_loss,
-                        take_profit=sig.take_profit_1, client_id=cid,
+                        take_profit_1=sig.take_profit_1,
+                        take_profit_2=sig.take_profit_2,
+                        partial_pct=cfg.strategy.partial_tp_pct,
+                        client_id=cid,
                     )
-                    log.info("LIVE bracket %s qty=%.4f entry=%.2f sl=%.2f tp=%.2f",
+                    log.info("LIVE SMC bracket %s qty=%.4f entry=%.2f sl=%.2f tp1=%.2f",
                              sig.side, qty, sig.entry, sig.stop_loss, sig.take_profit_1)
 
             time.sleep(min(ltf_step_ms / 1000, 5))

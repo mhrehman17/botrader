@@ -148,13 +148,21 @@ def run_backtest(cfg: BotConfig, run_dir: Path) -> BacktestResult:
                 if len(broker.positions()) >= cfg.risk.max_concurrent_positions:
                     break
                 client_id = f"{sym}-{ts}"
-                broker.submit_bracket(
+                broker.submit_smc_bracket(
                     symbol=sym, side=sig.side, qty=qty,
                     entry_price=sig.entry, stop_loss=sig.stop_loss,
-                    take_profit=sig.take_profit_1, client_id=client_id,
+                    take_profit_1=sig.take_profit_1,
+                    take_profit_2=sig.take_profit_2,
+                    partial_pct=cfg.strategy.partial_tp_pct,
+                    client_id=client_id,
                 )
-                log.info("Placed bracket %s qty=%.4f entry=%.2f sl=%.2f tp=%.2f",
-                         sig.side, qty, sig.entry, sig.stop_loss, sig.take_profit_1)
+                log.info("Placed SMC bracket %s qty=%.4f entry=%.2f sl=%.2f tp1=%.2f tp2=%s",
+                         sig.side, qty, sig.entry, sig.stop_loss, sig.take_profit_1,
+                         f"{sig.take_profit_2:.2f}" if sig.take_profit_2 else "none")
+
+        # Exit-management: ATR trailing past 1R for any open positions.
+        if cfg.risk.trail_atr_mult > 0:
+            _manage_trailing_stops(broker, data, sym_idx, cfg)
 
         bar_count += 1
         if bar_count % 5000 == 0:
@@ -175,6 +183,66 @@ def run_backtest(cfg: BotConfig, run_dir: Path) -> BacktestResult:
     summary = {k: round(v, 4) if isinstance(v, float) else v for k, v in metrics.items()}
     log.info("METRICS: %s", summary)
     return result
+
+
+def _atr_from(df: pd.DataFrame, period: int) -> float:
+    if len(df) < period + 1:
+        return 0.0
+    h = df["high"].to_numpy()
+    low = df["low"].to_numpy()
+    c = df["close"].to_numpy()
+    import numpy as np
+    prev_c = np.concatenate(([c[0]], c[:-1]))
+    tr = np.maximum.reduce([h - low, np.abs(h - prev_c), np.abs(low - prev_c)])
+    return float(tr[-period:].mean())
+
+
+def _manage_trailing_stops(broker, data: dict[str, pd.DataFrame], sym_idx: dict[str, int],
+                           cfg: BotConfig) -> None:
+    """For any open SMC position whose MFE has reached 1R, trail the SL by trail_atr_mult * ATR.
+    Only ratchets in the favorable direction."""
+    for pos in broker.positions():
+        meta = broker.position_meta(pos.symbol) if hasattr(broker, "position_meta") else None
+        if not meta:
+            continue
+        entry = meta["entry_price"]
+        original_sl = meta["original_sl"]
+        mfe = meta["mfe_price"]
+        cur_sl = meta["current_sl"]
+        side = meta["side"]
+        risk = abs(entry - original_sl)
+        if risk <= 0:
+            continue
+        # Past 1R?
+        if side == "long" and (mfe - entry) < risk:
+            continue
+        if side == "short" and (entry - mfe) < risk:
+            continue
+        # Compute ATR from latest LTF window
+        df = data.get(pos.symbol)
+        if df is None:
+            continue
+        i = sym_idx.get(pos.symbol, 0)
+        window = df.iloc[max(0, i - 200):i]
+        atr = _atr_from(window, cfg.risk.sl_atr_period)
+        if atr <= 0:
+            continue
+        last_close = float(window["close"].iloc[-1]) if not window.empty else entry
+        new_sl = (last_close - cfg.risk.trail_atr_mult * atr) if side == "long" else (
+            last_close + cfg.risk.trail_atr_mult * atr
+        )
+        # Ratchet only in favorable direction
+        if cur_sl is not None:
+            if side == "long" and new_sl <= cur_sl:
+                continue
+            if side == "short" and new_sl >= cur_sl:
+                continue
+        # Don't trail through current price (would close immediately)
+        if side == "long" and new_sl >= last_close:
+            continue
+        if side == "short" and new_sl <= last_close:
+            continue
+        broker.modify_stop(pos.symbol, new_sl)
 
 
 def _expire_limits(broker, symbol: str, ts: int, cfg: BotConfig, ltf_step_ms: int) -> None:
