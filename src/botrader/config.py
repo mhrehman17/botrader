@@ -45,6 +45,13 @@ class StrategyConfig(BaseModel):
     ote_depth: float = 0.5
     htf_lookback_bars: int = 500
     ltf_lookback_bars: int = 500
+    # Reject signals where TP1 is too close to entry vs the SL distance.
+    # 1.0 = TP1 distance must equal at least one SL-distance (1R). Default
+    # 1.0 keeps the floor at "break-even after fees on a typical winner".
+    min_rr_to_tp1: float = 1.0
+    # Cap the SL distance to N×ATR(sl_atr_period); rejects entries with
+    # impractically wide stops (which give terrible R:R).
+    max_sl_atr_mult: float = 4.0
 
 
 class RiskConfig(BaseModel):
@@ -60,6 +67,11 @@ class RiskConfig(BaseModel):
     trail_atr_mult: float = 0.0  # 0 disables trailing; e.g. 1.5 = trail by 1.5*ATR(14) past 1R
     funding_blackout_minutes: int = 5
     funding_abs_cap: float = 0.001
+    # Drawdown-aware sizing. After `dd_loss_streak` consecutive losing
+    # trades, multiply per-trade risk by `dd_risk_multiplier`. Reset on
+    # a winning trade. 1.0 disables.
+    dd_loss_streak: int = 3
+    dd_risk_multiplier: float = 1.0
 
 
 class BacktestConfig(BaseModel):

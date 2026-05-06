@@ -216,6 +216,27 @@ class SMCStrategy(Strategy):
         if (side == "long" and tp1 <= entry) or (side == "short" and tp1 >= entry):
             return []
 
+        # EV gate 1: cap SL distance to N×ATR. Wide-stop OBs have terrible
+        # R:R and dominate left-tail losses; reject them up front.
+        risk_distance = abs(entry - sl)
+        if atr > 0 and risk_distance > self.strat.max_sl_atr_mult * atr:
+            log.debug(
+                "REJECT %s SL too wide: %.4f > %.1f*ATR(%.4f)",
+                symbol, risk_distance, self.strat.max_sl_atr_mult, atr,
+            )
+            return []
+        # EV gate 2: minimum R:R to TP1. A trade that risks 1R to make 0.3R
+        # has negative expected value at any realistic win-rate after fees.
+        tp1_distance = abs(tp1 - entry)
+        if risk_distance > 0:
+            rr = tp1_distance / risk_distance
+            if rr < self.strat.min_rr_to_tp1:
+                log.debug(
+                    "REJECT %s R:R too small: %.2f < %.2f",
+                    symbol, rr, self.strat.min_rr_to_tp1,
+                )
+                return []
+
         ctx.armed_ob = ob
         ctx.armed_at_ltf_idx = len(ltf_df) - 1
         ctx.state = "armed"

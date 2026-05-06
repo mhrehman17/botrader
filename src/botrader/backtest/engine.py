@@ -26,7 +26,7 @@ from ..core.types import (
 from ..data.ohlcv import load_range
 from ..data.resampler import resample_ohlcv
 from ..risk.killswitch import KillSwitch
-from ..risk.sizing import ContractSpec, size_position
+from ..risk.sizing import ContractSpec, dd_risk_factor, size_position
 from ..strategy.smc_mtf import SMCStrategy
 from ..utils.timeframes import tf_to_ms
 from .metrics import all_metrics
@@ -135,9 +135,15 @@ def run_backtest(cfg: BotConfig, run_dir: Path) -> BacktestResult:
                 continue
 
             for sig in signals:
+                # Drawdown-aware sizing: shrink risk after a losing streak.
+                dd_factor = dd_risk_factor(
+                    broker.trades() if hasattr(broker, "trades") else [],
+                    cfg.risk.dd_loss_streak,
+                    cfg.risk.dd_risk_multiplier,
+                )
                 qty = size_position(
                     equity=broker.equity(),
-                    risk_pct=cfg.risk.risk_pct_per_trade,
+                    risk_pct=cfg.risk.risk_pct_per_trade * dd_factor,
                     entry=sig.entry,
                     stop_loss=sig.stop_loss,
                     spec=spec,
