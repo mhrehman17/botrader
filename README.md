@@ -1,0 +1,3 @@
+# botrader
+
+Initialized repository.
