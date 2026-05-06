@@ -13,6 +13,7 @@ Smart Money Concepts (SMC) day-trading bot for crypto futures markets — multi-
   - Order Blocks (bullish & bearish, with mitigation tracking)
   - Fair Value Gaps (3-candle imbalances, fill tracking)
   - Liquidity pools (equal highs/lows) and sweeps (stop hunts)
+- **HTTP API + native mobile app** — `botrader serve` + an Expo/React Native client under `mobile/`. Six screens (Dashboard, Positions, History, Scanner, Chart with SMC overlays, Settings), encrypted-at-rest exchange credentials, mode toggle (paper ↔ testnet ↔ mainnet) with a typed `MAINNET` confirmation gate.
 - **Multi-timeframe:** HTF bias (1h/4h) drives LTF entries (5m/15m).
 - **Risk management:** % risk per trade, daily-loss kill-switch, max-drawdown kill-switch, leverage cap, funding-window blackout.
 - **Modes:** `backtest` → `paper` → `live` (testnet) → `live` (mainnet, gated).
@@ -39,7 +40,29 @@ botrader paper --config configs/paper.yaml
 
 # 5. Live trade on testnet (after keys in .env)
 botrader live --config configs/testnet.yaml
+
+# 6. Or: run the HTTP API and use the mobile app
+pip install -e ".[api]"
+export BOTRADER_API_TOKEN=$(openssl rand -hex 16)
+export BOTRADER_MASTER_KEY=$(openssl rand -hex 32)
+# (optional, gates mainnet from the UI)
+# export BOTRADER_ALLOW_MAINNET=1
+botrader serve --config configs/paper.yaml --port 8787
+# In another terminal:
+cd mobile && cp .env.example .env  # set EXPO_PUBLIC_API_URL/EXPO_PUBLIC_API_TOKEN
+npm install && npm run start  # scan QR with Expo Go
 ```
+
+## Mobile app + HTTP API
+
+The bot ships with a FastAPI service under `src/botrader/api/` and an Expo + React Native client under `mobile/`.
+
+- Six screens: Dashboard, Positions, History, Scanner, Chart (with OB/FVG/sweep overlays), Settings.
+- Add and verify exchange API keys from your phone — the server stores them encrypted at rest with a Fernet key derived from `BOTRADER_MASTER_KEY`.
+- Switch modes (paper ↔ testnet ↔ mainnet) with a typed-confirmation flow. **Mainnet is gated by `BOTRADER_ALLOW_MAINNET=1` on the server.**
+- The API is single-user, bearer-token-protected. Don't expose it to the public internet without TLS + reverse proxy + IP allowlist.
+
+See `mobile/README.md` for the full setup.
 
 ## Strategy in one paragraph
 
