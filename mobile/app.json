@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "botrader",
+    "slug": "botrader",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0a0c",
+    "splash": {
+      "backgroundColor": "#0a0a0c",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.botrader.mobile"
+    },
+    "android": {
+      "package": "dev.botrader.mobile"
+    },
+    "extra": {
+      "apiUrl": "http://127.0.0.1:8787"
+    }
+  }
+}
