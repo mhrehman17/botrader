@@ -1,0 +1,9 @@
+extends: default.yaml
+mode: paper
+exchange:
+  id: binanceusdm
+  testnet: false
+symbols:
+  - "BTC/USDT:USDT"
+risk:
+  risk_pct_per_trade: 0.002

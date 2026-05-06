@@ -1,0 +1,10 @@
+extends: default.yaml
+mode: backtest
+symbols:
+  - "BTC/USDT:USDT"
+backtest:
+  start: "2024-06-01"
+  end: "2024-12-31"
+  fee_bps: 4
+  slippage_bps: 2
+  initial_equity: 10000
